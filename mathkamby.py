@@ -898,7 +898,7 @@ else:
         limpar_todo_chat()
         st.success("O histórico de mensagens foi limpo com sucesso!")
         st.rerun()
-    @st.fragment(run_every=5)
+    @st.fragment(run_every=0.3)
     def actualizar_chat_automatico():
         historico = carregar_historico()
         for id_msg, autor, conteudo, tipo_m, cam_aud, data in historico:
