@@ -687,7 +687,7 @@ else:
         '<h3 class="titulo-destaque">📌 Quadro Virtual / Rascunho Oficial</h3>',
         unsafe_allow_html=True,
     )
-    @st.fragment(run_evry=0.2)
+    @st.fragment(run_every=0.2)
     def actualizar_quadro_atomatico():
         conteudo_atual, audio_atual, data_atualizacao = obter_rascunho()
     
