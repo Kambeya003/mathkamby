@@ -688,7 +688,7 @@ else:
         unsafe_allow_html=True,
     )
     @st.fragment(run_every=0.2)
-    def actualizar_quadro_atomatico():
+    def actualizar_quadro_automatico():
         conteudo_atual, audio_atual, data_atualizacao = obter_rascunho()
     
         if st.session_state.tipo_usuario == "admin":
