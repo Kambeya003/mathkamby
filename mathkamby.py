@@ -5,6 +5,7 @@ import random
 import re
 import sqlite3
 import streamlit as st
+from google import genai
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -278,13 +279,11 @@ def carregar_historico(usuario=None, eh_admin=False):
   conn = sqlite3.connect(DB_NAME)
   cursor = conn.cursor()
   if eh_admin or not usuario:
-    # O Administrador vê todo o histórico do sistema
     cursor.execute(
         "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
         " mensagens ORDER BY id"
     )
   else:
-    # O Utilizador comum vê as mensagens dele próprio E as respostas enviadas pelo admin ("Kamby" ou "Assistente")
     cursor.execute(
         "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
         " mensagens WHERE autor = ? OR autor COLLATE NOCASE = 'kamby' OR autor"
@@ -294,6 +293,7 @@ def carregar_historico(usuario=None, eh_admin=False):
   mensagens = cursor.fetchall()
   conn.close()
   return mensagens
+
 
 def apagar_mensagem_bd(id_msg):
   conn = sqlite3.connect(DB_NAME)
@@ -487,6 +487,28 @@ def apagar_arquivo_bd(id_arq, caminho_arq):
   cursor.execute("DELETE FROM arquivos WHERE id = ?", (id_arq,))
   conn.commit()
   conn.close()
+
+
+# --- FUNÇÃO DA IA INCORPORADA (GOOGLE GEMINI) ---
+def obter_resposta_ia(pergunta_usuario):
+  try:
+    api_key = st.secrets.get("GEMINI_API_KEY", "")
+    if not api_key:
+      return "⚠️ Chave API da IA não configurada nos Secrets do Streamlit."
+    
+    client = genai.Client(api_key=api_key)
+    prompt_sistema = (
+        "És o assistente virtual oficial do portal MathKamby, especializado em"
+        " matemática e no apoio aos estudantes do ISP-Moxico. Responde de"
+        " forma clara, educativa, encorajadora e em português correto."
+    )
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=f"{prompt_sistema}\n\nUtilizador perguntou: {pergunta_usuario}",
+    )
+    return response.text
+  except Exception as e:
+    return f"Olá! Ocorreu um pequeno erro ao processar a resposta da IA: {str(e)}"
 
 
 init_db()
@@ -912,8 +934,8 @@ else:
   with aba_chat:
     st.markdown(
         '<div class="meu-cartao">'
-        '<h3 class="titulo-destaque">💬 Central de Mensagens</h3>'
-        '<p class="texto-suave">Histórico de conversas registadas no sistema.</p>'
+        '<h3 class="titulo-destaque">💬 Central de Mensagens & Assistente Virtual</h3>'
+        '<p class="texto-suave">Envia a tua pergunta e obtém respostas instantâneas da IA incorporada.</p>'
         "</div>",
         unsafe_allow_html=True,
     )
@@ -926,7 +948,6 @@ else:
 
     @st.fragment(run_every=0.3)
     def actualizar_chat_automatico():
-      # Utilizador normal vê apenas o seu histórico; Admin vê tudo se desejar
       eh_admin = st.session_state.tipo_usuario == "admin"
       historico = carregar_historico(
           st.session_state.usuario_atual, eh_admin=eh_admin
@@ -963,10 +984,15 @@ else:
     )
 
     if opcao_envio == "Texto":
-      if prompt := st.chat_input("Escreve a tua mensagem..."):
+      if prompt := st.chat_input("Escreve a tua mensagem para a IA..."):
+        # 1. Guarda a mensagem do utilizador
         salvar_mensagem(
             st.session_state.usuario_atual, prompt, tipo_msg="texto"
         )
+        # 2. Obtém a resposta inteligente da IA incorporada
+        resposta_ia = obter_resposta_ia(prompt)
+        # 3. Guarda a resposta da IA no banco de dados
+        salvar_mensagem("Assistente", resposta_ia, tipo_msg="texto")
         st.success("Recebido com sucesso!")
         st.rerun()
     else:
