@@ -930,7 +930,7 @@ else:
         salvar_mensagem(
             st.session_state.usuario_atual, prompt, tipo_msg="texto"
         )
-        resposta_bot = f"Recebi a tua mensagem, {st.session_state.usuario_atual}: '{prompt}'"
+        resposta_bot = st.sucess("Mensagem foi recebida com sucesso! Aguarde a resposta do Administrador...")
         salvar_mensagem("Assistente", resposta_bot, tipo_msg="texto")
         st.rerun()
     else:
