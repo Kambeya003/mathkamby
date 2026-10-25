@@ -898,27 +898,28 @@ else:
         limpar_todo_chat()
         st.success("O histórico de mensagens foi limpo com sucesso!")
         st.rerun()
-
-    historico = carregar_historico()
-    for id_msg, autor, conteudo, tipo_m, cam_aud, data in historico:
-      if autor == "Assistente":
-        avatar_autor = "🤖"
-      else:
-        avatar_autor = obter_avatar_usuario(autor)
-
-      with st.chat_message(autor, avatar=avatar_autor):
-        if tipo_m == "texto":
-          st.write(conteudo)
-        elif tipo_m == "audio" and cam_aud and os.path.exists(cam_aud):
-          st.audio(cam_aud)
-
-        st.caption(f"Enviado em: {data}")
-
-        if st.session_state.tipo_usuario == "admin":
-          if st.button("❌ Apagar Mensagem", key=f"del_msg_{id_msg}"):
-            apagar_mensagem_bd(id_msg)
-            st.rerun()
-
+    @st.fragment(run_every=5)
+    def actualizar_chat_automatico():
+        historico = carregar_historico()
+        for id_msg, autor, conteudo, tipo_m, cam_aud, data in historico:
+          if autor == "Assistente":
+            avatar_autor = "🤖"
+          else:
+            avatar_autor = obter_avatar_usuario(autor)
+    
+          with st.chat_message(autor, avatar=avatar_autor):
+            if tipo_m == "texto":
+              st.write(conteudo)
+            elif tipo_m == "audio" and cam_aud and os.path.exists(cam_aud):
+              st.audio(cam_aud)
+    
+            st.caption(f"Enviado em: {data}")
+    
+            if st.session_state.tipo_usuario == "admin":
+              if st.button("❌ Apagar Mensagem", key=f"del_msg_{id_msg}"):
+                apagar_mensagem_bd(id_msg)
+                st.rerun()
+    actualizar_chat_automatico()
     st.markdown("---")
     st.markdown("#### Enviar Nova Mensagem:")
     opcao_envio = st.radio(
