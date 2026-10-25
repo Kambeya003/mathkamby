@@ -687,70 +687,75 @@ else:
         '<h3 class="titulo-destaque">📌 Quadro Virtual / Rascunho Oficial</h3>',
         unsafe_allow_html=True,
     )
-    conteudo_atual, audio_atual, data_atualizacao = obter_rascunho()
-
-    if st.session_state.tipo_usuario == "admin":
-      with st.expander("✏️ [Admin] Atualizar o Quadro Virtual (Texto & Áudio)"):
-        novo_texto_rascunho = st.text_area(
-            "Escreve ou altera o rascunho aqui:", value=conteudo_atual, height=120
+    @st.fragment(run_evry=0.2)
+    def actualizar_quadro_atomatico():
+        conteudo_atual, audio_atual, data_atualizacao = obter_rascunho()
+    
+        if st.session_state.tipo_usuario == "admin":
+          with st.expander("✏️ [Admin] Atualizar o Quadro Virtual (Texto & Áudio)"):
+            novo_texto_rascunho = st.text_area(
+                "Escreve ou altera o rascunho aqui:", value=conteudo_atual, height=120
+            )
+            audio_rascunho_up = st.audio_input("Gravar áudio para o quadro")
+    
+            if st.button("Publicar Atualização no Quadro"):
+              caminho_a = audio_atual
+              if audio_rascunho_up is not None:
+                caminho_a = salvar_audio_disco(audio_rascunho_up, "quadro")
+    
+              atualizar_rascunho(novo_texto_rascunho, caminho_a)
+              st.success("Quadro virtual atualizado com sucesso!")
+              st.rerun()
+    
+        st.markdown(
+            f'<div class="quadro-virtual">{conteudo_atual}</div>',
+            unsafe_allow_html=True,
         )
-        audio_rascunho_up = st.audio_input("Gravar áudio para o quadro")
-
-        if st.button("Publicar Atualização no Quadro"):
-          caminho_a = audio_atual
-          if audio_rascunho_up is not None:
-            caminho_a = salvar_audio_disco(audio_rascunho_up, "quadro")
-
-          atualizar_rascunho(novo_texto_rascunho, caminho_a)
-          st.success("Quadro virtual atualizado com sucesso!")
-          st.rerun()
-
-    st.markdown(
-        f'<div class="quadro-virtual">{conteudo_atual}</div>',
-        unsafe_allow_html=True,
-    )
-    if audio_atual and os.path.exists(audio_atual):
-      st.audio(audio_atual)
-    if data_atualizacao:
-      st.caption(f"🕒 Última atualização do rascunho: {data_atualizacao}")
+        if audio_atual and os.path.exists(audio_atual):
+          st.audio(audio_atual)
+        if data_atualizacao:
+          st.caption(f"🕒 Última atualização do rascunho: {data_atualizacao}")
+    actualizar_quadro_automatico()
 
     st.divider()
-
-    st.markdown(
-        '<h3 class="titulo-destaque">⭐ Avaliação do Conteúdo</h3>',
-        unsafe_allow_html=True,
-    )
-    media_val, total_val = media_avaliacoes()
-    if total_val > 0:
-      st.markdown(
-          f'<p class="texto-suave">Média atual do portal: <b>{media_val} ⭐</b>'
-          f" ({total_val} avaliações registadas)</p>",
-          unsafe_allow_html=True,
-      )
-    else:
-      st.markdown(
-          '<p class="texto-suave">Ainda não há avaliações. Sê o primeiro a'
-          " avaliar!</p>",
-          unsafe_allow_html=True,
-      )
-
-    with st.form("form_avaliacao", clear_on_submit=True):
-      estrelas_escolhidas = st.slider(
-          "Classifica a tua satisfação com o portal:", 1, 5, 5
-      )
-      comentario_aval = st.text_input(
-          "Comentário opcional sobre a tua experiência:"
-      )
-      btn_enviar_aval = st.form_submit_button("Enviar Avaliação")
-      if btn_enviar_aval:
-        salvar_avaliacao(
-            st.session_state.usuario_atual,
-            estrelas_escolhidas,
-            comentario_aval,
+    @st.fragment(run_evry=0.2)
+    def actualizar_avaliacoes():
+        st.markdown(
+            '<h3 class="titulo-destaque">⭐ Avaliação do Conteúdo</h3>',
+            unsafe_allow_html=True,
         )
-        st.success("Obrigado pela tua avaliação!")
-        st.rerun()
-
+        media_val, total_val = media_avaliacoes()
+        if total_val > 0:
+          st.markdown(
+              f'<p class="texto-suave">Média atual do portal: <b>{media_val} ⭐</b>'
+              f" ({total_val} avaliações registadas)</p>",
+              unsafe_allow_html=True,
+          )
+        else:
+          st.markdown(
+              '<p class="texto-suave">Ainda não há avaliações. Sê o primeiro a'
+              " avaliar!</p>",
+              unsafe_allow_html=True,
+          )
+    
+        with st.form("form_avaliacao", clear_on_submit=True):
+          estrelas_escolhidas = st.slider(
+              "Classifica a tua satisfação com o portal:", 1, 5, 5
+          )
+          comentario_aval = st.text_input(
+              "Comentário opcional sobre a tua experiência:"
+          )
+          btn_enviar_aval = st.form_submit_button("Enviar Avaliação")
+          if btn_enviar_aval:
+            salvar_avaliacao(
+                st.session_state.usuario_atual,
+                estrelas_escolhidas,
+                comentario_aval,
+            )
+            st.success("Obrigado pela tua avaliação!")
+            st.rerun()
+    actualizar_avaliacoes()
+      
     if st.session_state.tipo_usuario == "admin":
       with st.expander("📊 Ver Detalhes das Avaliações Recebidas"):
         lista_avals = listar_avaliacoes()
