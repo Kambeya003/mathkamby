@@ -26,6 +26,7 @@ st.markdown(
         border: 1px solid #334155;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         margin-bottom: 20px;
+    }
     .titulo-destaque {
         color: #38bdf8;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -273,13 +274,20 @@ def salvar_mensagem(autor, conteudo, tipo_msg="texto", caminho_audio=None):
   conn.close()
 
 
-def carregar_historico():
+def carregar_historico(usuario=None, eh_admin=False):
   conn = sqlite3.connect(DB_NAME)
   cursor = conn.cursor()
-  cursor.execute(
-      "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
-      " mensagens ORDER BY id"
-  )
+  if eh_admin or not usuario:
+    cursor.execute(
+        "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
+        " mensagens ORDER BY id"
+    )
+  else:
+    cursor.execute(
+        "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
+        " mensagens WHERE autor = ? ORDER BY id",
+        (usuario,),
+    )
   mensagens = cursor.fetchall()
   conn.close()
   return mensagens
@@ -687,75 +695,81 @@ else:
         '<h3 class="titulo-destaque">📌 Quadro Virtual / Rascunho Oficial</h3>',
         unsafe_allow_html=True,
     )
-    @st.fragment(run_every=0.2)
+
+    @st.fragment(run_every=0.5)
     def actualizar_quadro_automatico():
-        conteudo_atual, audio_atual, data_atualizacao = obter_rascunho()
-    
-        if st.session_state.tipo_usuario == "admin":
-          with st.expander("✏️ [Admin] Atualizar o Quadro Virtual (Texto & Áudio)"):
-            novo_texto_rascunho = st.text_area(
-                "Escreve ou altera o rascunho aqui:", value=conteudo_atual, height=120
-            )
-            audio_rascunho_up = st.audio_input("Gravar áudio para o quadro")
-    
-            if st.button("Publicar Atualização no Quadro"):
-              caminho_a = audio_atual
-              if audio_rascunho_up is not None:
-                caminho_a = salvar_audio_disco(audio_rascunho_up, "quadro")
-    
-              atualizar_rascunho(novo_texto_rascunho, caminho_a)
-              st.success("Quadro virtual atualizado com sucesso!")
-              st.rerun()
-    
-        st.markdown(
-            f'<div class="quadro-virtual">{conteudo_atual}</div>',
-            unsafe_allow_html=True,
-        )
-        if audio_atual and os.path.exists(audio_atual):
-          st.audio(audio_atual)
-        if data_atualizacao:
-          st.caption(f"🕒 Última atualização do rascunho: {data_atualizacao}")
+      conteudo_atual, audio_atual, data_atualizacao = obter_rascunho()
+
+      if st.session_state.tipo_usuario == "admin":
+        with st.expander("✏️ [Admin] Atualizar o Quadro Virtual (Texto & Áudio)"):
+          novo_texto_rascunho = st.text_area(
+              "Escreve ou altera o rascunho aqui:",
+              value=conteudo_atual,
+              height=120,
+          )
+          audio_rascunho_up = st.audio_input("Gravar áudio para o quadro")
+
+          if st.button("Publicar Atualização no Quadro"):
+            caminho_a = audio_atual
+            if audio_rascunho_up is not None:
+              caminho_a = salvar_audio_disco(audio_rascunho_up, "quadro")
+
+            atualizar_rascunho(novo_texto_rascunho, caminho_a)
+            st.success("Quadro virtual atualizado com sucesso!")
+            st.rerun()
+
+      st.markdown(
+          f'<div class="quadro-virtual">{conteudo_atual}</div>',
+          unsafe_allow_html=True,
+      )
+      if audio_atual and os.path.exists(audio_atual):
+        st.audio(audio_atual)
+      if data_atualizacao:
+        st.caption(f"🕒 Última atualização do rascunho: {data_atualizacao}")
+
     actualizar_quadro_automatico()
 
     st.divider()
-    @st.fragment(run_every=0.2)
+
+    @st.fragment(run_every=0.5)
     def actualizar_avaliacoes():
+      st.markdown(
+          '<h3 class="titulo-destaque">⭐ Avaliação do Conteúdo</h3>',
+          unsafe_allow_html=True,
+      )
+      media_val, total_val = media_avaliacoes()
+      if total_val > 0:
         st.markdown(
-            '<h3 class="titulo-destaque">⭐ Avaliação do Conteúdo</h3>',
+            f'<p class="texto-suave">Média atual do portal: <b>{media_val} ⭐</b>'
+            f" ({total_val} avaliações registadas)</p>",
             unsafe_allow_html=True,
         )
-        media_val, total_val = media_avaliacoes()
-        if total_val > 0:
-          st.markdown(
-              f'<p class="texto-suave">Média atual do portal: <b>{media_val} ⭐</b>'
-              f" ({total_val} avaliações registadas)</p>",
-              unsafe_allow_html=True,
+      else:
+        st.markdown(
+            '<p class="texto-suave">Ainda não há avaliações. Sê o primeiro a'
+            " avaliar!</p>",
+            unsafe_allow_html=True,
+        )
+
+      with st.form("form_avaliacao", clear_on_submit=True):
+        estrelas_escolhidas = st.slider(
+            "Classifica a tua satisfação com o portal:", 1, 5, 5
+        )
+        comentario_aval = st.text_input(
+            "Comentário opcional sobre a tua experiência:"
+        )
+        btn_enviar_aval = st.form_submit_button("Enviar Avaliação")
+        if btn_enviar_aval:
+          salvar_avaliacao(
+              st.session_state.usuario_atual,
+              estrelas_escolhidas,
+              comentario_aval,
           )
-        else:
-          st.markdown(
-              '<p class="texto-suave">Ainda não há avaliações. Sê o primeiro a'
-              " avaliar!</p>",
-              unsafe_allow_html=True,
-          )
-    
-        with st.form("form_avaliacao", clear_on_submit=True):
-          estrelas_escolhidas = st.slider(
-              "Classifica a tua satisfação com o portal:", 1, 5, 5
-          )
-          comentario_aval = st.text_input(
-              "Comentário opcional sobre a tua experiência:"
-          )
-          btn_enviar_aval = st.form_submit_button("Enviar Avaliação")
-          if btn_enviar_aval:
-            salvar_avaliacao(
-                st.session_state.usuario_atual,
-                estrelas_escolhidas,
-                comentario_aval,
-            )
-            st.success("Obrigado pela tua avaliação!")
-            st.rerun()
+          st.success("Obrigado pela tua avaliação!")
+          st.rerun()
+
     actualizar_avaliacoes()
-      
+
     if st.session_state.tipo_usuario == "admin":
       with st.expander("📊 Ver Detalhes das Avaliações Recebidas"):
         lista_avals = listar_avaliacoes()
@@ -789,7 +803,7 @@ else:
               pergunta_usuario,
               caminho_d_audio,
           )
-          st.success("Enviado com sucesso!")
+          st.success("Recebido com sucesso!")
           st.rerun()
         else:
           st.warning("Escreve um texto ou grava um áudio antes de enviar.")
@@ -807,7 +821,9 @@ else:
           st.audio(cam_aud_d)
 
         if st.session_state.tipo_usuario == "admin":
-          if st.button("✔️ Marcar como Resolvida / Apagar", key=f"del_duvida_{id_d}"):
+          if st.button(
+              "✔️ Marcar como Resolvida / Apagar", key=f"del_duvida_{id_d}"
+          ):
             apagar_duvida(id_d)
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
@@ -879,7 +895,9 @@ else:
 
           if col3 and st.session_state.tipo_usuario == "admin":
             with col3:
-              if st.button("🗑️ Apagar", key=f"del_arq_{id_arq}", use_container_width=True):
+              if st.button(
+                  "🗑️ Apagar", key=f"del_arq_{id_arq}", use_container_width=True
+              ):
                 apagar_arquivo_bd(id_arq, caminho_arq)
                 st.success(f"Ficheiro '{nome_arq}' eliminado!")
                 st.rerun()
@@ -903,28 +921,39 @@ else:
         limpar_todo_chat()
         st.success("O histórico de mensagens foi limpo com sucesso!")
         st.rerun()
+
     @st.fragment(run_every=0.3)
     def actualizar_chat_automatico():
-        historico = carregar_historico()
-        for id_msg, autor, conteudo, tipo_m, cam_aud, data in historico:
-          if autor == "Assistente":
-            avatar_autor = "🤖"
-          else:
-            avatar_autor = obter_avatar_usuario(autor)
-    
-          with st.chat_message(autor, avatar=avatar_autor):
-            if tipo_m == "texto":
-              st.write(conteudo)
-            elif tipo_m == "audio" and cam_aud and os.path.exists(cam_aud):
-              st.audio(cam_aud)
-    
-            st.caption(f"Enviado em: {data}")
-    
-            if st.session_state.tipo_usuario == "admin":
-              if st.button("❌ Apagar Mensagem", key=f"del_msg_{id_msg}"):
-                apagar_mensagem_bd(id_msg)
-                st.rerun()
+      # Utilizador normal vê apenas o seu histórico; Admin vê tudo se desejar
+      eh_admin = st.session_state.tipo_usuario == "admin"
+      historico = carregar_historico(
+          st.session_state.usuario_atual, eh_admin=eh_admin
+      )
+
+      if not historico:
+        st.info("Ainda não tens mensagens no teu histórico privado.")
+
+      for id_msg, autor, conteudo, tipo_m, cam_aud, data in historico:
+        if autor == "Assistente":
+          avatar_autor = "🤖"
+        else:
+          avatar_autor = obter_avatar_usuario(autor)
+
+        with st.chat_message(autor, avatar=avatar_autor):
+          if tipo_m == "texto":
+            st.write(conteudo)
+          elif tipo_m == "audio" and cam_aud and os.path.exists(cam_aud):
+            st.audio(cam_aud)
+
+          st.caption(f"Enviado em: {data}")
+
+          if st.session_state.tipo_usuario == "admin":
+            if st.button("❌ Apagar Mensagem", key=f"del_msg_{id_msg}"):
+              apagar_mensagem_bd(id_msg)
+              st.rerun()
+
     actualizar_chat_automatico()
+
     st.markdown("---")
     st.markdown("#### Enviar Nova Mensagem:")
     opcao_envio = st.radio(
@@ -936,8 +965,7 @@ else:
         salvar_mensagem(
             st.session_state.usuario_atual, prompt, tipo_msg="texto"
         )
-        resposta_bot = f"Recebi a tua mensagem {st.session_state.usuario_atual}, aguarde pela resposta..."
-        salvar_mensagem("Assistente", resposta_bot, tipo_msg="texto")
+        st.success("Recebido com sucesso!")
         st.rerun()
     else:
       audio_chat_up = st.audio_input("Gravar mensagem de voz")
@@ -950,10 +978,10 @@ else:
               tipo_msg="audio",
               caminho_audio=caminho_chat_aud,
           )
-          st.success("Áudio enviado com sucesso!")
+          st.success("Recebido com sucesso!")
           st.rerun()
 
-  # --- ABA 3: DESAFIOS & JOGOS (ARITMÉTICO + REGRA DE TRÊS + RESTO DE DIVISÃO + DADO DA SORTE) ---
+  # --- ABA 3: DESAFIOS & JOGOS ---
   with aba_jogo:
     st.markdown(
         '<div class="meu-cartao">'
@@ -1088,7 +1116,6 @@ else:
                   "opcoes": opcoes,
               })
             else:
-              # Modo Resto de Divisão (Módulo)
               if nivel_num == 1:
                 dividendo = random.randint(10, 99)
                 divisor = random.randint(2, 9)
@@ -1195,7 +1222,6 @@ else:
             st.rerun()
 
     else:
-      # --- JOGO DO DADO DA SORTE MATEMÁTICO ---
       st.markdown(
           '<h3 class="titulo-destaque">🎲 Sorte do Dado Matemático</h3>',
           unsafe_allow_html=True,
@@ -1257,13 +1283,14 @@ else:
                 " profundamente na criptografia moderna (como na segurança dos"
                 " telemóveis e bancos digitais)!",
             ),
-            ("Carta secreta #7: Sobre números primos",
-             "2 é o único número primo par",
+            (
+                "📜 Carta Secreta #7: Sobre números primos",
+                "2 é o único número primo par.",
             ),
-            ("Carta secreta #8: Números pares vs primos",
-             "### Nem todo número ímpar é primo, temos o exemplo de número 21",
-             "### Todo número par maior que dois é composto",
-             )
+            (
+                "📜 Carta Secreta #8: Números pares vs primos",
+                "Nem todo número ímpar é primo, como por exemplo o número 21.",
+            ),
         ]
         st.session_state.carta_sorteada = cartas_curiosidades[
             resultado_dado - 1
