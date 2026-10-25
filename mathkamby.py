@@ -278,20 +278,22 @@ def carregar_historico(usuario=None, eh_admin=False):
   conn = sqlite3.connect(DB_NAME)
   cursor = conn.cursor()
   if eh_admin or not usuario:
+    # O Administrador vê todo o histórico do sistema
     cursor.execute(
         "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
         " mensagens ORDER BY id"
     )
   else:
+    # O Utilizador comum vê as mensagens dele próprio E as respostas enviadas pelo admin ("Kamby" ou "Assistente")
     cursor.execute(
         "SELECT id, autor, conteudo, tipo_msg, caminho_audio, data_envio FROM"
-        " mensagens WHERE autor = ? ORDER BY id",
+        " mensagens WHERE autor = ? OR autor COLLATE NOCASE = 'kamby' OR autor"
+        " = 'Assistente' ORDER BY id",
         (usuario,),
     )
   mensagens = cursor.fetchall()
   conn.close()
   return mensagens
-
 
 def apagar_mensagem_bd(id_msg):
   conn = sqlite3.connect(DB_NAME)
